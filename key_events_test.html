@@ -1,0 +1,23 @@
+<html>
+<head>
+
+<script>
+
+  function go(){
+    console.log('blah loaded');
+
+    document.addEventListener("keydown", keydown);
+  }
+
+  function keydown(event){
+    console.log(`${event.key}, ${event.shiftKey}, ${event.key == 'Enter'}`);
+  }
+</script>
+
+</head>
+
+<body onload="go();">
+a
+</body>
+
+</html>
