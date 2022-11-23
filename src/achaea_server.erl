@@ -49,7 +49,14 @@ command(Command) ->
 
 init([]) ->
     io:format("Achaea server running~n", []),
-	{ok, #state{}}.
+    RegisteredPids = #{raw => [],
+                       gmcp => [],
+                       fgcolor => [],
+                       element => [],
+                       text => [],
+                       version => [],
+                       support => []},
+	{ok, #state{registered_pids = RegisteredPids}}.
 
 handle_call({registered, MudDataType}, _From, State = #state{registered_pids = RegisteredPids}) ->
     case RegisteredPids of
@@ -61,8 +68,10 @@ handle_call({registered, MudDataType}, _From, State = #state{registered_pids = R
 handle_call(_Request, _From, State) ->
 	{reply, ignored, State}.
 
-handle_cast({register, Pid, Type},
+handle_cast({register, Pid, TypeBin},
             State = #state{registered_pids = RegisteredPids0}) ->
+
+    Type = type_atom(TypeBin),
 
     case RegisteredPids0 of
         #{Type := Pids} ->
@@ -93,14 +102,10 @@ handle_cast({unregister, Pid},
                  RegisteredPids0),
     {noreply,
      State#state{registered_pids = RegisteredPids}};
-handle_cast({update, Update},
-            State = #state{registered_pids = #{<<"raw">> := RawSubs}}) ->
-    io:format("Update: Found subs for ~p: ~p~n", [<<"raw">>, RawSubs]),
-    [send_update(Pid, Update)|| Pid <- RawSubs],
+handle_cast({update, Binary}, State = #state{registered_pids = RegisteredPids}) ->
+    ParsedElements = mudspy_parse:parse(Binary),
+    [send_update(Elem, RegisteredPids)|| Elem <- ParsedElements],
     {noreply, State};
-handle_cast({update, _}, State = #state{registered_pids = RegisteredPids}) ->
-    io:format("Update: Found no subs for ~p: ~p~n", [<<"raw">>, RegisteredPids]),
-	{noreply, State};
 handle_cast(_Ignored, State) ->
 	{noreply, State}.
 
@@ -113,12 +118,27 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 
-send_update(Pid, Update) ->
-    Sample = case Update of
-                 <<First:20/binary, _/binary>> ->
-                     <<First/binary, " ...">>;
-                 Short ->
-                     Short
-             end,
-    io:format("Sending binary to pid ~p: (sample) ~p~n", [Pid, Sample]),
-    Pid ! {send, Update}.
+%% TODO turn the Bin into JSON so that the web pages can parse it
+send_update({Type, Bin}, RegisteredPids) ->
+    %Sample = case Update of
+    %             <<First:20/binary, _/binary>> ->
+    %                 <<First/binary, " ...">>;
+    %             Short ->
+    %                 Short
+    %         end,
+    %io:format("Sending binary to pid ~p: (sample) ~p~n", [Pid, Sample]),
+    #{Type := Pids, raw := RawPids} = RegisteredPids,
+    [Pid ! {send, Bin} || Pid <- Pids ++ RawPids].
+
+type_atom(<<"raw">>) ->
+    raw;
+type_atom(<<"gmcp">>) ->
+    gmcp;
+type_atom(<<"fgcolor">>) ->
+    fgcolor;
+type_atom(<<"text">>) ->
+    text;
+type_atom(<<"version">>) ->
+    version;
+type_atom(<<"support">>) ->
+    support.
