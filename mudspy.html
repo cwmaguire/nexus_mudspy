@@ -43,6 +43,9 @@
         let divData = document.createElement('div');
         let str = arrayToString(event.data);
         divData.innerText = str;
+        divData.style.border = '1px solid black';
+        divData.style.margin = '5px';
+
         messagesDiv.appendChild(divData);
     }
 
